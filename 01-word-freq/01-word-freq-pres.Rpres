@@ -1,0 +1,252 @@
+Word frequencies
+========================================================
+author: Christopher Barrie 
+date: Thursday, October 28: NCRM
+width: 2500
+height: 900
+transition: none  
+  website: https://cjbarrie.xyz     
+  github: https://github.com/cjbarrie       
+  Twitter: https://www.twitter.com/cbarrie
+  
+Word frequency analysis
+========================================================
+
+- Tokenizing
+- Counting words over space/time
+- Denominating by totals
+
+========================================================
+
+<center>
+![](images/mildigbooks.png)
+</center>
+
+Word frequency analysis
+========================================================
+
+```{r, echo=F, message=F, warning=F}
+library(tidytext)
+library(janeaustenr)
+library(tidyverse)
+
+bookdata <- tibble(txt = prideprejudice)
+
+```
+
+```{r}
+
+head(bookdata)
+
+```
+
+Word frequency analysis
+========================================================
+
+```{r}
+
+bookdata %>%
+  unnest_tokens(word, txt) %>%
+  count(word, sort=T)
+
+```
+
+Word frequency analysis
+========================================================
+
+```{r}
+
+bookdata %>%
+  unnest_tokens(word, txt) %>%
+  filter(!word %in% stop_words$word) %>%
+  count(word, sort=T)
+
+```
+
+========================================================
+
+<center>
+![](images/mildigbooksex.png)
+</center>
+- Source: Michel et al. 2011. "Quantitative Analysis of Culture Using Millions of Digitized Books," *Science*, 331(6014):176-182.
+
+========================================================
+
+<center>
+![](images/mildigbooksfreq.png)
+</center>
+
+Running Your First Analysis: Edinburgh Book Festival
+========================================================
+```{r, eval=TRUE}
+library(tidyverse) # loads dplyr, ggplot2, and others
+library(tidytext) # includes set of functions useful for manipulating text
+library(readr) # more informative and easy way to import data
+
+edbfdata <- read_csv("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/02-text-as-data/data/edbookfestall.csv")
+```
+
+
+Getting event descriptions
+========================================================
+```{r, eval=TRUE}
+# get simplified dataset with only event contents and year
+evdes <- edbfdata %>%
+  select(description, year)
+
+glimpse(evdes)
+```
+
+
+
+Tidying into tokens
+========================================================
+```{r, message=FALSE, warning=FALSE, eval=TRUE}
+tidy_des <- evdes %>% 
+  mutate(desc = tolower(description)) %>%
+  unnest_tokens(word, description) %>%
+  filter(str_detect(word, "[a-z]"))
+```
+
+
+Removing stop words
+========================================================
+```{r, eval=TRUE}
+tidy_des <- tidy_des %>%
+    filter(!word %in% stop_words$word)
+```
+
+Checking data
+========================================================
+```{r, message=FALSE, warning=FALSE, eval=TRUE}
+tidy_des %>%
+  count(word, sort = TRUE)
+```
+
+
+Further cleaning
+========================================================
+```{r, message=FALSE, warning=FALSE, eval=TRUE}
+remove_reg <- c("&amp;","&lt;","&gt;","<p>", "</p>","&rsquo", "&lsquo;",  "&#39;", "<strong>", "</strong>", "rsquo", "em", "ndash", "nbsp", "lsquo", "strong")
+reg_match <- paste0(remove_reg, collapse = "|")
+                  
+tidy_des <- tidy_des %>%
+  filter(!word %in% remove_reg)
+```
+
+Checking data again
+========================================================
+```{r, message=FALSE, warning=FALSE, eval=TRUE}
+tidy_des %>%
+  count(word, sort = TRUE)
+```
+
+REGEX
+========================================================
+
+```{r}
+x <- c("I want t0 detect some number5 right ab0ut n0w")
+str_detect(x, "\\d+")
+str_extract_all(x, "\\d+")
+```
+
+Check out:
+
+1. Regex crossword: [https://regexcrossword.com/](https://regexcrossword.com/).
+2. Regexone: [https://regexone.com/](https://regexone.com/)
+3. R4DS [chapter 14](https://r4ds.had.co.nz/strings.html#matching-patterns-with-regular-expressions)
+
+
+Back to the Fringe: computing counts
+========================================================
+```{r, message=FALSE, warning=FALSE, eval=TRUE}
+tidy_des %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 600) %>%
+  mutate(word = reorder(word, n))
+
+```
+
+Plot
+========================================================
+
+```{r, eval=F}
+
+tidy_des %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 700) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+
+```
+
+========================================================
+
+```{r, echo=F, fig.align="center", out.width="40%",}
+
+tidy_des %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 700) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+
+```
+
+Tag target words
+========================================================
+
+```{r}
+edbf_term_counts <- tidy_des %>% 
+  group_by(year) %>%
+  count(word, sort = TRUE)
+```
+
+```{r}
+edbf_term_counts$womword <- as.integer(grepl("women|gender",
+                                             x = edbf_term_counts$word))
+```
+
+Count words as proportion of total
+========================================================
+```{r}
+edbf_counts <- edbf_term_counts %>%
+  complete(year, word, fill = list(n = 0)) %>%
+  group_by(year) %>%
+  mutate(year_total = sum(n)) %>%
+  filter(womword==1) %>%
+  summarise(sum_wom = sum(n),
+            year_total= min(year_total))
+```
+
+Plot
+========================================================
+```{r, eval=F}
+ggplot(edbf_counts, aes(year, sum_wom / year_total, group=1)) +
+  geom_line() +
+  xlab("Year") +
+  ylab("% gender-related words") +
+  scale_y_continuous(labels = scales::percent_format(),
+                     expand = c(0, 0), limits = c(0, NA))
+
+```
+
+========================================================
+```{r, echo=F, fig.align="center", out.width="40%",}
+
+ggplot(edbf_counts, aes(year, sum_wom / year_total, group=1)) +
+  geom_line() +
+  xlab("Year") +
+  ylab("% gender-related words") +
+  scale_y_continuous(labels = scales::percent_format(),
+                     expand = c(0, 0), limits = c(0, NA))
+
+```
+
+Worksheets
+========================================================
+
+- [https://github.com/cjbarrie/sicss_21](https://github.com/cjbarrie/sicss_21)

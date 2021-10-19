@@ -1,0 +1,243 @@
+Sentiment Analysis
+========================================================
+author: Christopher Barrie 
+date: Thursday, October 28: NCRM
+width: 2500
+height: 900
+transition: none  
+  website: https://cjbarrie.xyz     
+  github: https://github.com/cjbarrie       
+  Twitter: https://www.twitter.com/cbarrie
+  
+Sentiment analysis
+========================================================
+
+- Tokenizing
+- Counting words with dictionary
+- Denominating by totals
+
+========================================================
+
+<center>
+<img src="images/subjwellnhb.png" width=1450 height=900>
+</center>
+
+========================================================
+
+<center>
+<img src="images/prosocpnas.png" width=1450 height=900>
+</center>
+
+```{r, echo=F, message=F, warning=F}
+library(tidytext)
+library(janeaustenr)
+library(tidyverse)
+
+bookdata <- tibble(txt = prideprejudice)
+
+bwords <- bookdata %>%
+  unnest_tokens(word, txt) %>%
+  filter(!word %in% stop_words$word,
+         str_detect(word, "[a-z]")) %>%
+  count(word, sort=T)
+
+set.seed(1234)
+ranbwords <- sample(bwords$word, 50)
+
+bingsent <- get_sentiments("bing")
+
+```
+
+Sentiment analysis
+========================================================
+
+- A sample of words from Pride and Prejudice
+
+```{r, echo=F}
+
+ranbwords
+
+```
+
+Sentiment analysis
+========================================================
+
+```{r}
+bingsent <- get_sentiments("bing")
+bingsent
+```
+
+Sentiment analysis
+========================================================
+
+- Pride and Prejudice words tagged with sentiment 
+
+```{r, echo=F}
+bingsent %>%
+  filter(word %in% ranbwords)
+
+```
+
+========================================================
+
+<center>
+<img src="images/subjwellmeth.png" width=1500 height=600>
+</center>
+- Source: Hills et al. 2021. "Historical analysis of national subjective wellbeing using millions of digitized books," *Nature Human Behaviour*, 3:1271–1275.
+
+========================================================
+
+<center>
+<img src="images/prosocmeth.png" width=1500 height=600>
+</center>
+- Source: Martins, Mauricio de Jesus Dias and Nicolas Baumard. 2021. "The rise of prosociality in fiction preceded democratic revolutions in Early Modern Europe," *Proceedings of the National Academy of Sciences*, 117(46) 28684–28691.
+
+Running Your Own Analysis: Tahrir Documents
+========================================================
+
+```{r, echo=F}
+library('knitr')
+```
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 500)
+```
+
+```{r, eval=TRUE}
+library(tidyverse) # loads dplyr, ggplot2, and others
+library(readr) # more informative and easy way to import data
+library(stringr) # to handle text elements
+library(tidytext) # includes set of functions useful for manipulating text
+
+pamphdata <- read_csv("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/pamphlets_formatted_gsheets.csv")
+
+```
+
+Sentiment dictionaries
+========================================================
+* `AFINN` from [Finn Årup Nielsen](http://www2.imm.dtu.dk/pubdb/views/publication_details.php?id=6010),
+* `bing` from [Bing Liu and collaborators](https://www.cs.uic.edu/~liub/FBS/sentiment-analysis.html), and
+* `nrc` from [Saif Mohammad and Peter Turney](http://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm)
+
+Getting sentiment dictionaries
+========================================================
+```{r}
+get_sentiments("afinn")
+```
+
+Getting sentiment dictionaries
+========================================================
+```{r}
+get_sentiments("nrc")
+```
+
+Getting sentiment dictionaries
+========================================================
+```{r}
+get_sentiments("bing")
+```
+
+
+Preprocess Tahrir documents
+========================================================
+
+```{r}
+
+tidy_pamph <- pamphdata %>% 
+  mutate(desc = tolower(text)) %>%
+  unnest_tokens(word, desc) %>%
+  filter(str_detect(word, "[a-z]"))
+
+tidy_pamph <- tidy_pamph %>%
+    filter(!word %in% stop_words$word)
+```
+
+Inspect
+========================================================
+
+```{r, message=FALSE, warning=FALSE, eval=TRUE}
+tidy_pamph %>%
+  count(word, sort = TRUE)
+```
+
+Order by date and index
+========================================================
+
+```{r}
+#order and format date
+tidy_pamph<- tidy_pamph %>%
+  arrange(date)
+
+tidy_pamph$order <- 1:nrow(tidy_pamph)
+
+```
+
+Get sentiments in tidy format
+========================================================
+
+```{r}
+#join pamphlets with nrc sentiment data
+pamph_nrc_sentiment <- tidy_pamph %>%
+  inner_join(get_sentiments("nrc"))
+
+```
+
+Get sentiments in tidy format
+========================================================
+
+```{r}
+#calculate sentiment over per 1000 words per date
+pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+  count(date, index = order %/% 1000, sentiment)
+
+head(pamph_nrc_sentiment)
+
+```
+
+Get sentiments in tidy format
+========================================================
+
+```{r}
+#separate into 
+pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+  spread(sentiment, n, fill = 0)
+
+head(pamph_nrc_sentiment)
+
+```
+
+Get sentiments in tidy format
+========================================================
+
+```{r}
+#separate into 
+pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+  mutate(sentiment = positive - negative)
+
+head(pamph_nrc_sentiment)
+```
+
+Plot
+========================================================
+
+```{r, eval = F}
+pamph_nrc_sentiment %>%
+  ggplot(aes(date, sentiment)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method= loess, alpha=0.25)
+
+```
+
+========================================================
+
+```{r, echo=F, fig.align="center", out.width="40%",}
+pamph_nrc_sentiment %>%
+  ggplot(aes(date, sentiment)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method= loess, alpha=0.25)
+
+```
+
+Worksheets
+========================================================
+
+- [https://github.com/cjbarrie/sicss_21](https://github.com/cjbarrie/sicss_21)
