@@ -28,42 +28,65 @@ In this tutorial, you will learn how to:
 
 * Use dictionary-based techniques to analyze text
 * Use common sentiment dictionaries
-* Apply more advanced sentiment analysis techniques, e.g., accounting for "valence shifters."
-* Create your own dictionary
+* Create your own "dictionary"
 
 ## Setup 
 
 The hands-on exercise for this week uses dictionary-based methods for filtering and scoring words. Dictionary-based methods use pre-generated lexicons, which are no more than list of words with associated scores or variables measuring the valence of a particular word. In this sense, the exercise is not unlike our analysis of Edinburgh Book Festival event descriptions. Here, we were filtering descriptions based on the presence or absence of a word related to women or gender. We can understand this approach as a particularly simple type of "dictionary-based" method. Here, our "dictionary" or "lexicon" contained just a few words related to gender. 
-
-In this exercise we'll be using another new dataset. The data were sourced from a series of webpages on the Internet Archive that host material collected at the Arab Spring protests in Egypt in 2011. The original website can be seen [here](https://www.tahrirdocuments.org/) and below.
-
-![](images/tahrir_page.png){width=100%}
-
-For full details of the technique used to scrape these webpages, see [here](https://raw.githack.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/03-week7.html).
 
 ##  Load data and packages 
 
 Before proceeding, we'll load the remaining packages we will need for this tutorial.
 
 ```{r, message=F}
+library(academictwitteR) # for fetching Twitter data
 library(tidyverse) # loads dplyr, ggplot2, and others
 library(readr) # more informative and easy way to import data
 library(stringr) # to handle text elements
 library(tidytext) # includes set of functions useful for manipulating text
+
 ```
+
+
+In this exercise we'll be using another new dataset. The data were collected from the Twitter accounts of the top eight newspapers in the UK by circulation. You can see the names of the newspapers in the code below:
+
+```{r, eval=F}
+newspapers = c("TheSun", "DailyMailUK", "MetroUK", "DailyMirror", 
+               "EveningStandard", "thetimes", "Telegraph", "guardian")
+
+tweets <-
+  get_all_tweets(
+    users = newspapers,
+    start_tweets = "2020-01-01T00:00:00Z",
+    end_tweets = "2020-05-01T00:00:00Z",
+    file = "newstweets,rds",
+    data_path = "data/",
+    n = Inf,
+  )
+
+tweets <- 
+  bind_tweets(data_path = "data", output_format = "tidy")
+
+saveRDS(tweets, "newstweets.rds")
+
+```
+
+
+
+![](images/guardiancorona.png){width=100%}
+
+For details of how to access Twitter data with `academictwitteR`, check out details of the package [here](https://cran.r-project.org/web/packages/academictwitteR/index.html).
 
 We can download the final dataset with:
 
 ```{r}
-pamphdata <- read_csv("data/pamphlets_formatted_gsheets.csv")
+tweets <- readRDS("data/newstweets.rds")
 ```
 
-You can also view the formatted output of this scraping exercise, alongside images of the documents in question, in Google Sheets [here](https://docs.google.com/spreadsheets/d/1rg2VTV6uuknpu6u-L5n7kvQ2cQ6e6Js7IHp7CaSKe90/edit?usp=sharing).
-
-If you're working on this document from your own computer ("locally") you can download the Tahrir documents data in the following way:
+If you're working on this document from your own computer ("locally") you can download the tweets data in the following way:
 
 ```{r, eval = F}
-pamphdata <- read_csv("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/pamphlets_formatted_gsheets.csv")
+pamphdata <- readRDS("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/newstweets.rds")
 ```
 
 ## Inspect and filter data 
@@ -71,15 +94,28 @@ pamphdata <- read_csv("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03
 Let's have a look at the data:
 
 ```{r}
-head(pamphdata)
+head(tweets)
+colnames(tweets)
 ```
 
-Each document here is a pamphlet produced during the Arab Spring protests in Egypt in 2011. They have all been translated into English. The contents of each pamphlet are stored under the column entitled "text." This is the text with which we will be performing our analyses. Note also that each document has a particular date. We can therefore use these to look at any over time changes.
+Each row here is a tweets produced by one of the news outlets detailed above over a five month period, January--May 2020. Note also that each tweets has a particular date. We can therefore use these to look at any over time changes.
 
-We manipulate the data into tidy format again, unnesting each token (here: words) from the pamphlet text. 
+We won't need all of these variables so let's just keep those that are of interest to us:
 
 ```{r}
-tidy_pamph <- pamphdata %>% 
+
+tweets <- tweets %>%
+  select(user_username, text, created_at, user_name,
+         retweet_count, like_count, quote_count)
+
+head(tweets)
+
+```
+
+We manipulate the data into tidy format again, unnesting each token (here: words) from the tweet text. 
+
+```{r}
+tidy_tweets <- tweets %>% 
   mutate(desc = tolower(text)) %>%
   unnest_tokens(word, desc) %>%
   filter(str_detect(word, "[a-z]"))
@@ -88,15 +124,8 @@ tidy_pamph <- pamphdata %>%
 We'll then tidy this further, as in the previous example, by removing stop words:
 
 ```{r}
-tidy_pamph <- tidy_pamph %>%
+tidy_tweets <- tidy_tweets %>%
     filter(!word %in% stop_words$word)
-```
-
-Then we can check what words we are left with that appear with most frequency in the cleaned data. We see that, as expected, we have lots of words relating to "revolution," "people," "demands" etc.:
-
-```{r, message=FALSE, warning=FALSE, eval=TRUE}
-tidy_pamph %>%
-  count(word, sort = TRUE)
 ```
 
 ## Get sentiment dictionaries
@@ -123,46 +152,47 @@ get_sentiments("nrc")
 
 What do we see here. First, the `AFINN` lexicon gives words a score from -5 to +5, where more negative scores indicate more negative sentiment and more positive scores indicate more positive sentiment.  The `nrc` lexicon opts for a binary classification: positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise, and trust, with each word given a score of 1/0 for each of these sentiments. In other words, for the `nrc` lexicon, words appear multiple times if they enclose more than one such emotion (see, e.g., "abandon" above). The `bing` lexicon is most minimal, classifying words simply into binary "positive" or "negative" categories. 
 
-Let's see how we might filter the texts by selecting a dictionary, or subset of a dictionary, and using `inner_join()` to then filter out pamphlet data. We might, for example, be interested in joy words. Maybe, we might hypothesize, there is a uptick of joy toward the beginning of the revolutionary uprising, which then subsequently declined. First, let's have a look at the words in our pamphlet data that the `nrc` lexicon codes as joy-related words.
+Let's see how we might filter the texts by selecting a dictionary, or subset of a dictionary, and using `inner_join()` to then filter out pamphlet data. We might, for example, be interested in joy words. Maybe, we might hypothesize, there is a uptick of fear toward the beginning of the coronavirus outbreak. First, let's have a look at the words in our tweet data that the `nrc` lexicon codes as fear-related words.
 
 ```{r}
 
-nrc_joy <- get_sentiments("nrc") %>% 
-  filter(sentiment == "joy")
+nrc_fear <- get_sentiments("nrc") %>% 
+  filter(sentiment == "fear")
 
-tidy_pamph %>%
-  inner_join(nrc_joy) %>%
+tidy_tweets %>%
+  inner_join(nrc_fear) %>%
   count(word, sort = TRUE)
 
 ```
 
-
-We have a total of 336 words with some joy valence in our pamphlet data according to the `nrc` classification. Several seem reasonable (e.g., "freedom," "victory"); others seems less so (e.g., "god," "ministry").
+We have a total of 1,174 words with some fear valence in our pamphlet data according to the `nrc` classification. Several seem reasonable (e.g., "death," "pandemic"); others seems less so (e.g., "mum," "fight").
 
 ## Sentiment trends over time
 
 Do we see any time trends? First let's make sure the data are properly arranged in ascending order by date. We'll then add column, which we'll call "order," the use of which will become clear when we do the sentiment analysis.
 
 ```{r}
-#order and format date
-tidy_pamph<- tidy_pamph %>%
+#gen data variable, order and format date
+tidy_tweets$date <- as.Date(tidy_tweets$created_at)
+
+tidy_tweets <- tidy_tweets %>%
   arrange(date)
 
-tidy_pamph$order <- 1:nrow(tidy_pamph)
+tidy_tweets$order <- 1:nrow(tidy_tweets)
 
 ```
 
-Remember that the structure of our pamphlet data is in a one token (word) per document (pamphlet) format. In order to look at sentiment trends over time, we'll need to decide over how many words to estimate the sentiment. 
+Remember that the structure of our tweet data is in a one token (word) per document (tweet) format. In order to look at sentiment trends over time, we'll need to decide over how many words to estimate the sentiment. 
 
 In the below, we first add in our sentiment dictionary with `inner_join()`. We then use the `count()` function, specifying that we want to count over dates, and that words should be indexed in order (i.e., by row number) over every 1000 rows (i.e., every 1000 words). 
 
-This means that if one date has many documents totalling >1000 words, then we will have multiple observations for that given date; if there are only one or two documents then we might have just one row and associated sentiment score for that date. 
+This means that if one date has many tweets totalling >1000 words, then we will have multiple observations for that given date; if there are only one or two tweets then we might have just one row and associated sentiment score for that date. 
 
 We then calculate the sentiment scores for each of our sentiment types (positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise, and trust) and use the `spread()` function to convert these into separate columns (rather than rows). Finally we calculate a net sentiment score by subtracting the score for negative sentiment from positive sentiment. 
 
 ```{r}
 #get tweet sentiment by date
-pamph_nrc_sentiment <- tidy_pamph %>%
+pamph_nrc_sentiment <- tidy_tweets %>%
   inner_join(get_sentiments("nrc")) %>%
   count(date, index = order %/% 1000, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
@@ -179,7 +209,7 @@ How do our different sentiment dictionaries look when compared to each other? We
 
 ```{r}
 
-tidy_pamph %>%
+tidy_tweets %>%
   inner_join(get_sentiments("bing")) %>%
   count(date, index = order %/% 1000, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
@@ -189,7 +219,7 @@ tidy_pamph %>%
   geom_smooth(method= loess, alpha=0.25) +
   ylab("bing sentiment")
 
-tidy_pamph %>%
+tidy_tweets %>%
   inner_join(get_sentiments("nrc")) %>%
   count(date, index = order %/% 1000, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
@@ -199,7 +229,7 @@ tidy_pamph %>%
   geom_smooth(method= loess, alpha=0.25) +
   ylab("nrc sentiment")
 
-tidy_pamph %>%
+tidy_tweets %>%
   inner_join(get_sentiments("afinn")) %>%
   group_by(date, index = order %/% 1000) %>% 
   summarise(sentiment = sum(value)) %>% 
@@ -211,149 +241,74 @@ tidy_pamph %>%
 
 ```
 
-We see that they do look pretty similar... but they're not particularly informative beyond telling us there's no obvious time trend. We might therefore choose to focus our attention on one particular sentiment. As noted above, we might hypothesize that there was a greater frequency of joy sentiment earlier on in the uprising. We can check this by simply changing the sentiment variable we're analyzing in the `nrc` dictionary:
-
-```{r}
-
-tidy_pamph %>%
-  inner_join(get_sentiments("nrc")) %>%
-  count(date, index = order %/% 1000, sentiment) %>%
-  spread(sentiment, n, fill = 0) %>%
-  ggplot(aes(date, joy)) +
-  geom_point(alpha=0.5) +
-  geom_smooth(method= loess, alpha=0.25)
-
-```
-
-We do some small evidence that there was a higher frequency of joy words earlier on in the uprising. Further analyses, however, might build a more domain-specific dictionary. For example, if we were interested in the frequency of democracy demands over time, we might build a specific lexicon for this, coding democracy-related words as 1 and everything else as 0.
-
-## Sentiment of sentences
-
-Note that to this point we have been conducting sentiment analyses on unigrams; i.e., single words. Clearly this is prone to error. An obvious example of where such error could creep in is with negation. For example, in the sentence, "I am not happy" the word "happy" would be scored for positive emotion as the scoring method is blind to the negation. Negation is a type of "valence shifting." This means that the valence of a word might change depending on its broader context in a sequence of words. 
-
-There are ways of dealing with this, however. In the next section we will look into how we might go about taking account of valence shifters. For this, we will be using   <tt>sentimentr</tt> package by @R-sentimentr. This is a development package so can't be installed in the normal way. Instead, run the following code to install it:
-
-```{r, eval=F}
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load_current_gh("trinker/lexicon", "trinker/sentimentr")
-
-library(sentimentr)
-```
-
-
-```{r}
-library(sentimentr)
-
-pamph_sentences <- get_sentences(pamphdata)
-pamph_sentences_sent <- sentiment(pamph_sentences)
-
-pamph_sentences_sent %>%
-  group_by(date) %>%
-  summarise(ave_sentiment = mean(sentiment)) %>%
-  ggplot(aes(date, ave_sentiment)) +
-  geom_point(alpha=0.5) +
-  geom_smooth(method= loess, alpha=0.25)
-
-```
-
-With the <tt>sentimentr</tt> package we can check how this dictionary-based method is scoring words by outputting random sections of text and highlighting them red or green based on the sentiment score attached to the sentence in question. This is easy to achieve with some in-built functions that come with the package: 
-
-
-```{r, eval=F}
-
-set.seed(123)
-pamphdata %>%
-    filter(imgID %in% sample(unique(imgID), 3)) %>%
-    mutate(pamphsentences = get_sentences(text)) %$%
-    sentiment_by(pamphsentences, imgID) %>%
-    highlight()
-
-```
-
-![](images/senthighlight.png)
-What do we make of how this text has been scored? There does seem to be some logic to the sections coded as positive versus negative. But more than anything, this shows us that there is clear error in how texts are scored, even when valence shifting is taken into account.
+We see that they do look pretty similar... and interestingly it seems that overall sentiment positivity *increases* as the pandemic breaks.
 
 ## Domain-specific lexicons
 
-Of course, list- or dictionary-based methods need not only focus on sentiment, even if this is one of their most common uses. In essence, what you'll have seen from the above is that sentiment analysis techniques rely on a given lexicon and score words appropriately. And there is nothing stopping us from making our own dictionaries, whether they measure sentiment or not. In the data above, we might be interested, for example, in the demands individuals or organizations are advancing at protests. As such, we might choose to make our own dictionary of terms. What would this look like?
+Of course, list- or dictionary-based methods need not only focus on sentiment, even if this is one of their most common uses. In essence, what you'll have seen from the above is that sentiment analysis techniques rely on a given lexicon and score words appropriately. And there is nothing stopping us from making our own dictionaries, whether they measure sentiment or not. In the data above, we might be interested, for example, in the prevalence of mortality-related words in the news. As such, we might choose to make our own dictionary of terms. What would this look like?
 
-A very minimal example would choose, for example, words like "demand" and its synonyms and score these all as 1. We would then combine these into a dictionary, which we've called "demdict" here. 
+A very minimal example would choose, for example, words like "death" and its synonyms and score these all as 1. We would then combine these into a dictionary, which we've called "mordict" here. 
 
 ```{r}
 
-word <- c('demand', 'claim', 'call', 'insist')
-value <- c(1, 1, 1, 1)
-demdict <- data.frame(word, value)
-
-demdict
+word <- c('death', 'illness', 'hospital', 'life', 'health',
+             'fatality', 'morbidity', 'deadly', 'dead', 'victim')
+value <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+mordict <- data.frame(word, value)
+mordict
 
 ```
 
 We could then use the same technique as above to bind these with our data and look at the incidence of such words over time. Combining the sequence of scripts from above we would do the following:
 
 ```{r}
-#get tidy version of pamphlet data
-tidy_pamph <- pamphdata %>% 
-  mutate(desc = tolower(text)) %>%
-  unnest_tokens(word, desc) %>%
-  filter(str_detect(word, "[a-z]"))
-
-#remove stopwords
-tidy_pamph <- tidy_pamph %>%
-    filter(!word %in% stop_words$word)
-
-#order and format date
-tidy_pamph<- tidy_pamph %>%
-  arrange(date)
-#get indexing column
-tidy_pamph$order <- 1:nrow(tidy_pamph)
-
-tidy_pamph %>%
-  inner_join(demdict) %>%
+tidy_tweets %>%
+  inner_join(mordict) %>%
   group_by(date, index = order %/% 1000) %>% 
-  summarise(demandwords = sum(value)) %>% 
-  ggplot(aes(date, demandwords)) +
-  geom_point(alpha=0.5) +
-  geom_smooth(method= loess, alpha=0.25) +
-  ylab("demand words")
+  summarise(morwords = sum(value)) %>% 
+  ggplot(aes(date, morwords)) +
+  geom_bar(stat= "identity") +
+  ylab("mortality words")
 ```
 
-The above simply counts the number of demand words over time. This might be misleading if there are, for example, more or longer documents at certain points in time; i.e., if the length or quantity of text is not time-constant. Why would this matter? Well, in the above it could just be that we have more demand words earlier on because there are just more pamphlets earlier on. By just counting words, we are not taking into account the denominator.
+The above simply counts the number of mortality words over time. This might be misleading if there are, for example, more or longer tweets at certain points in time; i.e., if the length or quantity of text is not time-constant. 
 
+Why would this matter? Well, in the above it could just be that we have more mortality words later on because there are just more tweets earlier on. By just counting words, we are not taking into account the *denominator*.
 
-An alternative, and preferable, method here would simply take a character string of the relevant words. We would then sum the total number of words across all pamphlets over time. Then we would filter our pamphlet words by whether or not they are a demand word or not, according to the dictionary of words we have constructed. We would then do the same again with these words, summing the number of times they appear for each data. 
+An alternative, and preferable, method here would simply take a character string of the relevant words. We would then sum the total number of words across all tweets over time. Then we would filter our tweet words by whether or not they are a mortality word or not, according to the dictionary of words we have constructed. We would then do the same again with these words, summing the number of times they appear for each date. 
 
-After this, we join with our data frame of total words for each data. Note that here we are using `full_join()` as we want to include dates that appear in the "totals" data frame that do not appear when we filter for demand words; i.e., days when demand words are equal to 0. We then go about plotting as before.
+After this, we join with our data frame of total words for each date. Note that here we are using `full_join()` as we want to include dates that appear in the "totals" data frame that do not appear when we filter for mortality words; i.e., days when mortality words are equal to 0. We then go about plotting as before.
 
 ```{r}
-
-demwords <- c('demand', 'claim', 'call', 'insist')
+mordict <- c('death', 'illness', 'hospital', 'life', 'health',
+             'fatality', 'morbidity', 'deadly', 'dead', 'victim')
 
 #get total tweets per day (no missing dates so no date completion required)
-totals <- tidy_pamph %>%
+totals <- tidy_tweets %>%
   mutate(obs=1) %>%
   group_by(date) %>%
   summarise(sum_words = sum(obs))
 
 #plot
-tidy_pamph %>%
+tidy_tweets %>%
   mutate(obs=1) %>%
-  filter(grepl(paste0(demwords, collapse = "|"),word, ignore.case = T)) %>%
+  filter(grepl(paste0(mordict, collapse = "|"),word, ignore.case = T)) %>%
   group_by(date) %>%
-  summarise(sum_dwords = sum(obs)) %>%
+  summarise(sum_mwords = sum(obs)) %>%
   full_join(totals, word, by="date") %>%
-  mutate(sum_dwords= ifelse(is.na(sum_dwords), 0, sum_dwords),
-         pctdwords = sum_dwords/sum_words) %>%
-  ggplot(aes(date, pctdwords)) +
+  mutate(sum_mwords= ifelse(is.na(sum_mwords), 0, sum_mwords),
+         pctmwords = sum_mwords/sum_words) %>%
+  ggplot(aes(date, pctmwords)) +
   geom_point(alpha=0.5) +
   geom_smooth(method= loess, alpha=0.25) +
-  xlab("Date") + ylab("% demand words")
+  xlab("Date") + ylab("% mortality words")
+
 
 ```
 
 ## Exercises
 
-1. Take a subset of the pamphlets data by "tag." These tags describe the content of the pamphlet. Do we see different sentiment dynamics if we look only at a subset of these documents?
+1. Take a subset of the tweets data by "user_name" These names describe the name of the newspaper source of the Twitter account. Do we see different sentiment dynamics if we look only at different newspaper sources?
 2. Build your own (minimal) dictionary-based filter technique and plot the result
 
 ## References 
