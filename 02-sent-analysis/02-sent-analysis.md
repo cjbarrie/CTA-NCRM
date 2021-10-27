@@ -39,6 +39,8 @@ The hands-on exercise for this week uses dictionary-based methods for filtering 
 Before proceeding, we'll load the remaining packages we will need for this tutorial.
 
 
+
+
 ```r
 library(academictwitteR) # for fetching Twitter data
 library(tidyverse) # loads dplyr, ggplot2, and others
@@ -88,7 +90,7 @@ If you're working on this document from your own computer ("locally") you can do
 
 
 ```r
-pamphdata <- readRDS("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/newstweets.rds")
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-NCRM/blob/main/02-sent-analysis/data/newstweets.rds?raw=true")))
 ```
 
 ## Inspect and filter data 
@@ -147,29 +149,79 @@ We won't need all of these variables so let's just keep those that are of intere
 ```r
 tweets <- tweets %>%
   select(user_username, text, created_at, user_name,
-         retweet_count, like_count, quote_count)
-
-head(tweets)
+         retweet_count, like_count, quote_count) %>%
+  rename(username = user_username,
+         newspaper = user_name,
+         tweet = text)
 ```
 
-```
-## # A tibble: 6 x 7
-##   user_username text   created_at user_name retweet_count like_count quote_count
-##   <chr>         <chr>  <chr>      <chr>             <int>      <int>       <int>
-## 1 DailyMirror   "'Rea… 2020-01-0… The Mirr…             0          0           0
-## 2 DailyMirror   "RT @… 2020-01-0… The Mirr…             3          0           0
-## 3 TheSun        "Prin… 2020-01-0… The Sun               3         17           1
-## 4 DailyMirror   "RT @… 2020-01-0… The Mirr…             1          0           0
-## 5 DailyMailUK   "Jame… 2020-01-0… Daily Ma…             3          6           0
-## 6 TheSun        "Rona… 2020-01-0… The Sun              20        132           5
-```
+<table class="table table-striped table-hover table-condensed table-responsive" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> username </th>
+   <th style="text-align:left;"> tweet </th>
+   <th style="text-align:left;"> created_at </th>
+   <th style="text-align:left;"> newspaper </th>
+   <th style="text-align:right;"> retweet_count </th>
+   <th style="text-align:right;"> like_count </th>
+   <th style="text-align:right;"> quote_count </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> EveningStandard </td>
+   <td style="text-align:left;"> We can't complain: Two men spend coronavirus lockdown in London pub with 'fresh beer on tap'  🍺 https://t.co/rG65nGWv6q </td>
+   <td style="text-align:left;"> 2020-04-30T23:43:24.000Z </td>
+   <td style="text-align:left;"> Evening Standard </td>
+   <td style="text-align:right;"> 3 </td>
+   <td style="text-align:right;"> 4 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> EveningStandard </td>
+   <td style="text-align:left;"> Best home spa treatments: face, body, nail and hair products for home https://t.co/nDZ65BbbVs </td>
+   <td style="text-align:left;"> 2020-04-30T23:57:09.000Z </td>
+   <td style="text-align:left;"> Evening Standard </td>
+   <td style="text-align:right;"> 0 </td>
+   <td style="text-align:right;"> 2 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> guardian </td>
+   <td style="text-align:left;"> Coronavirus live news: Trump claims to have evidence virus started in Wuhan lab as UK is 'past the peak' https://t.co/LZv4yx2kn2 </td>
+   <td style="text-align:left;"> 2020-04-30T23:57:59.000Z </td>
+   <td style="text-align:left;"> The Guardian </td>
+   <td style="text-align:right;"> 19 </td>
+   <td style="text-align:right;"> 40 </td>
+   <td style="text-align:right;"> 8 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> guardian </td>
+   <td style="text-align:left;"> Rugby league gets £16m emergency loan from government https://t.co/kZ9PP4aWjO </td>
+   <td style="text-align:left;"> 2020-04-30T23:57:59.000Z </td>
+   <td style="text-align:left;"> The Guardian </td>
+   <td style="text-align:right;"> 9 </td>
+   <td style="text-align:right;"> 13 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> guardian </td>
+   <td style="text-align:left;"> Coronavirus latest: at a glance https://t.co/OrWrEdOwoU </td>
+   <td style="text-align:left;"> 2020-04-30T23:58:01.000Z </td>
+   <td style="text-align:left;"> The Guardian </td>
+   <td style="text-align:right;"> 8 </td>
+   <td style="text-align:right;"> 12 </td>
+   <td style="text-align:right;"> 3 </td>
+  </tr>
+</tbody>
+</table>
 
 We manipulate the data into tidy format again, unnesting each token (here: words) from the tweet text. 
 
 
 ```r
 tidy_tweets <- tweets %>% 
-  mutate(desc = tolower(text)) %>%
+  mutate(desc = tolower(tweet)) %>%
   unnest_tokens(word, desc) %>%
   filter(str_detect(word, "[a-z]"))
 ```
@@ -260,7 +312,7 @@ get_sentiments("nrc")
 
 What do we see here. First, the `AFINN` lexicon gives words a score from -5 to +5, where more negative scores indicate more negative sentiment and more positive scores indicate more positive sentiment.  The `nrc` lexicon opts for a binary classification: positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise, and trust, with each word given a score of 1/0 for each of these sentiments. In other words, for the `nrc` lexicon, words appear multiple times if they enclose more than one such emotion (see, e.g., "abandon" above). The `bing` lexicon is most minimal, classifying words simply into binary "positive" or "negative" categories. 
 
-Let's see how we might filter the texts by selecting a dictionary, or subset of a dictionary, and using `inner_join()` to then filter out pamphlet data. We might, for example, be interested in joy words. Maybe, we might hypothesize, there is a uptick of fear toward the beginning of the coronavirus outbreak. First, let's have a look at the words in our tweet data that the `nrc` lexicon codes as fear-related words.
+Let's see how we might filter the texts by selecting a dictionary, or subset of a dictionary, and using `inner_join()` to then filter out tweet data. We might, for example, be interested in fear words. Maybe, we might hypothesize, there is a uptick of fear toward the beginning of the coronavirus outbreak. First, let's have a look at the words in our tweet data that the `nrc` lexicon codes as fear-related words.
 
 
 ```r
@@ -293,7 +345,7 @@ tidy_tweets %>%
 ## # … with 1,164 more rows
 ```
 
-We have a total of 1,174 words with some fear valence in our pamphlet data according to the `nrc` classification. Several seem reasonable (e.g., "death," "pandemic"); others seems less so (e.g., "mum," "fight").
+We have a total of 1,174 words with some fear valence in our tweet data according to the `nrc` classification. Several seem reasonable (e.g., "death," "pandemic"); others seems less so (e.g., "mum," "fight").
 
 ## Sentiment trends over time
 
@@ -321,7 +373,7 @@ We then calculate the sentiment scores for each of our sentiment types (positive
 
 ```r
 #get tweet sentiment by date
-pamph_nrc_sentiment <- tidy_tweets %>%
+tweets_nrc_sentiment <- tidy_tweets %>%
   inner_join(get_sentiments("nrc")) %>%
   count(date, index = order %/% 1000, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
@@ -333,7 +385,7 @@ pamph_nrc_sentiment <- tidy_tweets %>%
 ```
 
 ```r
-pamph_nrc_sentiment %>%
+tweets_nrc_sentiment %>%
   ggplot(aes(date, sentiment)) +
   geom_point(alpha=0.5) +
   geom_smooth(method= loess, alpha=0.25)
@@ -343,7 +395,7 @@ pamph_nrc_sentiment %>%
 ## `geom_smooth()` using formula 'y ~ x'
 ```
 
-![](02-sent-analysis_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](02-sent-analysis_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 How do our different sentiment dictionaries look when compared to each other? We can then plot the sentiment scores over time for each of our sentiment dictionaries like so:
 
@@ -368,7 +420,7 @@ tidy_tweets %>%
 ## `geom_smooth()` using formula 'y ~ x'
 ```
 
-![](02-sent-analysis_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](02-sent-analysis_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 ```r
 tidy_tweets %>%
@@ -387,7 +439,7 @@ tidy_tweets %>%
 ## `geom_smooth()` using formula 'y ~ x'
 ```
 
-![](02-sent-analysis_files/figure-html/unnamed-chunk-15-2.png)<!-- -->
+![](02-sent-analysis_files/figure-html/unnamed-chunk-17-2.png)<!-- -->
 
 ```r
 tidy_tweets %>%
@@ -412,7 +464,7 @@ tidy_tweets %>%
 ## `geom_smooth()` using formula 'y ~ x'
 ```
 
-![](02-sent-analysis_files/figure-html/unnamed-chunk-15-3.png)<!-- -->
+![](02-sent-analysis_files/figure-html/unnamed-chunk-17-3.png)<!-- -->
 
 We see that they do look pretty similar... and interestingly it seems that overall sentiment positivity *increases* as the pandemic breaks.
 
@@ -466,7 +518,7 @@ tidy_tweets %>%
 ## `summarise()` has grouped output by 'date'. You can override using the `.groups` argument.
 ```
 
-![](02-sent-analysis_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](02-sent-analysis_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 The above simply counts the number of mortality words over time. This might be misleading if there are, for example, more or longer tweets at certain points in time; i.e., if the length or quantity of text is not time-constant. 
 
@@ -506,7 +558,7 @@ tidy_tweets %>%
 ## `geom_smooth()` using formula 'y ~ x'
 ```
 
-![](02-sent-analysis_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](02-sent-analysis_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
 
 ## Exercises
 

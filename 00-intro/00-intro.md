@@ -74,7 +74,7 @@ The Script (top left) is where we write our commands for R. You can try this out
 
 
 ```r
-x <- "I can't wait to learn Quantitative Research Methods" #Note the quotation marks!
+x <- "I can't wait to learn at NCRM!" #Note the quotation marks!
 ```
 To tell R to run the command, highlight the relevant row in your script and click the <tt>Run</tt> button (top right of the Script) - or hold down <tt>ctrl+enter</tt> on Windows or <tt>cmd+enter</tt> on Mac - to send the command to the Console (bottom left), where the actual evaluation and calculations are taking place. These shortcut keys will become very familiar to you very quickly!
 
@@ -87,7 +87,7 @@ print(x)
 ```
 
 ```
-## [1] "I can't wait to learn Quantitative Research Methods"
+## [1] "I can't wait to learn at NCRM!"
 ```
 
 ```r
@@ -97,7 +97,7 @@ x
 ```
 
 ```
-## [1] "I can't wait to learn Quantitative Research Methods"
+## [1] "I can't wait to learn at NCRM!"
 ```
 
 ## Loading packages 
@@ -197,7 +197,7 @@ setwd("/Users/Documents/mydir/")
 setwd("c:/docs/mydir") 
 ```
 
-## Practicing in R 
+## Practising in R 
 
 The best way to learn <tt>R</tt> is to use it. These workshops on text analysis will not be the place to become fully proficient in <tt>R</tt>. They will, however, be a chance to conduct some hands-on analysis with applied examples in a fast-expanding field. And the best way to learn is through doing. So give it a shot! For some further practice in the R programming language, look no further than @wickham_r_2017 and, for tidy text analysis, @silge_text_2017.
 
@@ -215,6 +215,8 @@ available_tutorials() # this will tell you the names of the tutorials available
 
 run_tutorial(name = "ex-data-basics", package = "learnr") #this will launch the interactive tutorial in a new Internet browser window
 ```
+
+or consulting this page for some additional [primers](https://rstudio.cloud/learn/primers).
 
 ## One final note 
 

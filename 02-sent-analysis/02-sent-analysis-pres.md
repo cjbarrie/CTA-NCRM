@@ -115,7 +115,7 @@ Sentiment analysis
 </center>
 - Source: Martins, Mauricio de Jesus Dias and Nicolas Baumard. 2021. "The rise of prosociality in fiction preceded democratic revolutions in Early Modern Europe," *Proceedings of the National Academy of Sciences*, 117(46) 28684–28691.
 
-Running Your Own Analysis: Tahrir Documents
+Running Your Own Analysis: News tweets
 ========================================================
 
 
@@ -128,7 +128,7 @@ library(readr) # more informative and easy way to import data
 library(stringr) # to handle text elements
 library(tidytext) # includes set of functions useful for manipulating text
 
-pamphdata <- read_csv("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/pamphlets_formatted_gsheets.csv")
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-NCRM/blob/main/02-sent-analysis/data/newstweets.rds?raw=true")))
 ```
 
 Sentiment dictionaries
@@ -209,18 +209,30 @@ get_sentiments("bing")
 # … with 6,776 more rows
 ```
 
+Curate tweets data
+========================================================
+
+
+```r
+tweets <- tweets %>%
+  select(user_username, text, created_at, user_name,
+         retweet_count, like_count, quote_count) %>%
+  rename(username = user_username,
+         newspaper = user_name,
+         tweet = text)
+```
 
 Preprocess Tahrir documents
 ========================================================
 
 
 ```r
-tidy_pamph <- pamphdata %>% 
-  mutate(desc = tolower(text)) %>%
+tidy_tweets <- tweets %>% 
+  mutate(desc = tolower(tweet)) %>%
   unnest_tokens(word, desc) %>%
   filter(str_detect(word, "[a-z]"))
 
-tidy_pamph <- tidy_pamph %>%
+tidy_tweets <- tidy_tweets %>%
     filter(!word %in% stop_words$word)
 ```
 
@@ -229,25 +241,25 @@ Inspect
 
 
 ```r
-tidy_pamph %>%
+tidy_tweets %>%
   count(word, sort = TRUE)
 ```
 
 ```
-# A tibble: 12,133 x 2
+# A tibble: 240,027 x 2
    word             n
    <chr>        <int>
- 1 revolution    2051
- 2 people        1564
- 3 egypt         1073
- 4 egyptian      1049
- 5 al             905
- 6 regime         804
- 7 political      646
- 8 party          619
- 9 constitution   577
-10 demands        575
-# … with 12,123 more rows
+ 1 https       214857
+ 2 t.co        212579
+ 3 coronavirus  30282
+ 4 rt           22357
+ 5 uk            7568
+ 6 lockdown      6527
+ 7 home          5245
+ 8 mum           4509
+ 9 people        4506
+10 nhs           4195
+# … with 240,017 more rows
 ```
 
 Order by date and index
@@ -256,10 +268,12 @@ Order by date and index
 
 ```r
 #order and format date
-tidy_pamph<- tidy_pamph %>%
+tidy_tweets$date <- as.Date(tidy_tweets$created_at)
+
+tidy_tweets <- tidy_tweets %>%
   arrange(date)
 
-tidy_pamph$order <- 1:nrow(tidy_pamph)
+tidy_tweets$order <- 1:nrow(tidy_tweets)
 ```
 
 Get sentiments in tidy format
@@ -268,7 +282,7 @@ Get sentiments in tidy format
 
 ```r
 #join pamphlets with nrc sentiment data
-pamph_nrc_sentiment <- tidy_pamph %>%
+tweets_nrc_sentiment <- tidy_tweets %>%
   inner_join(get_sentiments("nrc"))
 ```
 
@@ -278,22 +292,22 @@ Get sentiments in tidy format
 
 ```r
 #calculate sentiment over per 1000 words per date
-pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+tweets_nrc_sentiment <- tweets_nrc_sentiment %>%
   count(date, index = order %/% 1000, sentiment)
 
-head(pamph_nrc_sentiment)
+head(tweets_nrc_sentiment)
 ```
 
 ```
 # A tibble: 6 x 4
   date       index sentiment        n
   <date>     <dbl> <chr>        <int>
-1 2011-03-11     0 anger           18
-2 2011-03-11     0 anticipation    13
-3 2011-03-11     0 disgust         16
-4 2011-03-11     0 fear            25
-5 2011-03-11     0 joy             12
-6 2011-03-11     0 negative        32
+1 2020-01-01     0 anger           45
+2 2020-01-01     0 anticipation    39
+3 2020-01-01     0 disgust         31
+4 2020-01-01     0 fear            51
+5 2020-01-01     0 joy             37
+6 2020-01-01     0 negative        86
 ```
 
 Get sentiments in tidy format
@@ -302,22 +316,22 @@ Get sentiments in tidy format
 
 ```r
 #separate into 
-pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+tweets_nrc_sentiment <- tweets_nrc_sentiment %>%
   spread(sentiment, n, fill = 0)
 
-head(pamph_nrc_sentiment)
+head(tweets_nrc_sentiment)
 ```
 
 ```
 # A tibble: 6 x 12
   date       index anger anticipation disgust  fear   joy negative positive sadness surprise trust
   <date>     <dbl> <dbl>        <dbl>   <dbl> <dbl> <dbl>    <dbl>    <dbl>   <dbl>    <dbl> <dbl>
-1 2011-03-11     0    18           13      16    25    12       32       36      14        9    29
-2 2011-03-13     0    26           27      11    35    18       38       89      24       11    52
-3 2011-03-14     0     2            2       1     3     0        4        6       2        3     2
-4 2011-03-15     0    34           25       6    31    10       51       47      27       17    27
-5 2011-03-15     1    51           79      22    80    62       88      168      53       42   109
-6 2011-03-15     2     3            2       1     3     4        4       18       2        1    19
+1 2020-01-01     0    45           39      31    51    37       86       70      40       19    41
+2 2020-01-01     1    33           27      16    47    27       69       51      31       16    31
+3 2020-01-01     2    39           31      14    44    23       66       57      27       18    32
+4 2020-01-01     3    19           32       8    42    26       43       63      23       15    33
+5 2020-01-01     4    39           36      27    50    27       78       60      37       24    38
+6 2020-01-01     5    44           30      25    60    35       83       72      38       22    37
 ```
 
 Get sentiments in tidy format
@@ -326,22 +340,22 @@ Get sentiments in tidy format
 
 ```r
 #separate into 
-pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+tweets_nrc_sentiment <- tweets_nrc_sentiment %>%
   mutate(sentiment = positive - negative)
 
-head(pamph_nrc_sentiment)
+head(tweets_nrc_sentiment)
 ```
 
 ```
 # A tibble: 6 x 13
   date       index anger anticipation disgust  fear   joy negative positive sadness surprise trust sentiment
   <date>     <dbl> <dbl>        <dbl>   <dbl> <dbl> <dbl>    <dbl>    <dbl>   <dbl>    <dbl> <dbl>     <dbl>
-1 2011-03-11     0    18           13      16    25    12       32       36      14        9    29         4
-2 2011-03-13     0    26           27      11    35    18       38       89      24       11    52        51
-3 2011-03-14     0     2            2       1     3     0        4        6       2        3     2         2
-4 2011-03-15     0    34           25       6    31    10       51       47      27       17    27        -4
-5 2011-03-15     1    51           79      22    80    62       88      168      53       42   109        80
-6 2011-03-15     2     3            2       1     3     4        4       18       2        1    19        14
+1 2020-01-01     0    45           39      31    51    37       86       70      40       19    41       -16
+2 2020-01-01     1    33           27      16    47    27       69       51      31       16    31       -18
+3 2020-01-01     2    39           31      14    44    23       66       57      27       18    32        -9
+4 2020-01-01     3    19           32       8    42    26       43       63      23       15    33        20
+5 2020-01-01     4    39           36      27    50    27       78       60      37       24    38       -18
+6 2020-01-01     5    44           30      25    60    35       83       72      38       22    37       -11
 ```
 
 Plot
@@ -349,7 +363,7 @@ Plot
 
 
 ```r
-pamph_nrc_sentiment %>%
+tweets_nrc_sentiment %>%
   ggplot(aes(date, sentiment)) +
   geom_point(alpha=0.5) +
   geom_smooth(method= loess, alpha=0.25)
@@ -357,9 +371,9 @@ pamph_nrc_sentiment %>%
 
 ========================================================
 
-<img src="02-sent-analysis-pres-figure/unnamed-chunk-18-1.png" title="plot of chunk unnamed-chunk-18" alt="plot of chunk unnamed-chunk-18" width="40%" style="display: block; margin: auto;" />
+<img src="02-sent-analysis-pres-figure/unnamed-chunk-19-1.png" title="plot of chunk unnamed-chunk-19" alt="plot of chunk unnamed-chunk-19" width="40%" style="display: block; margin: auto;" />
 
 Worksheets
 ========================================================
 
-- [https://github.com/cjbarrie/sicss_21](https://github.com/cjbarrie/sicss_21)
+- [https://github.com/cjbarrie/CTA-NCRM](https://github.com/cjbarrie/CTA-NCRM)

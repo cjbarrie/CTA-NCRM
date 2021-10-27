@@ -38,6 +38,10 @@ The hands-on exercise for this week uses dictionary-based methods for filtering 
 
 Before proceeding, we'll load the remaining packages we will need for this tutorial.
 
+```{r, echo=F}
+library(kableExtra)
+```
+
 ```{r, message=F}
 library(academictwitteR) # for fetching Twitter data
 library(tidyverse) # loads dplyr, ggplot2, and others
@@ -86,7 +90,8 @@ tweets <- readRDS("data/newstweets.rds")
 If you're working on this document from your own computer ("locally") you can download the tweets data in the following way:
 
 ```{r, eval = F}
-pamphdata <- readRDS("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/newstweets.rds")
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-NCRM/blob/main/02-sent-analysis/data/newstweets.rds?raw=true")))
+
 ```
 
 ## Inspect and filter data 
@@ -106,17 +111,26 @@ We won't need all of these variables so let's just keep those that are of intere
 
 tweets <- tweets %>%
   select(user_username, text, created_at, user_name,
-         retweet_count, like_count, quote_count)
+         retweet_count, like_count, quote_count) %>%
+  rename(username = user_username,
+         newspaper = user_name,
+         tweet = text)
 
-head(tweets)
+```
 
+```{r, echo = F}
+tweets %>% 
+  arrange(created_at) %>%
+  tail(5) %>%
+  kbl() %>%
+  kable_styling(c("striped", "hover", "condensed", "responsive"))
 ```
 
 We manipulate the data into tidy format again, unnesting each token (here: words) from the tweet text. 
 
 ```{r}
 tidy_tweets <- tweets %>% 
-  mutate(desc = tolower(text)) %>%
+  mutate(desc = tolower(tweet)) %>%
   unnest_tokens(word, desc) %>%
   filter(str_detect(word, "[a-z]"))
 ```
@@ -152,7 +166,7 @@ get_sentiments("nrc")
 
 What do we see here. First, the `AFINN` lexicon gives words a score from -5 to +5, where more negative scores indicate more negative sentiment and more positive scores indicate more positive sentiment.  The `nrc` lexicon opts for a binary classification: positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise, and trust, with each word given a score of 1/0 for each of these sentiments. In other words, for the `nrc` lexicon, words appear multiple times if they enclose more than one such emotion (see, e.g., "abandon" above). The `bing` lexicon is most minimal, classifying words simply into binary "positive" or "negative" categories. 
 
-Let's see how we might filter the texts by selecting a dictionary, or subset of a dictionary, and using `inner_join()` to then filter out pamphlet data. We might, for example, be interested in joy words. Maybe, we might hypothesize, there is a uptick of fear toward the beginning of the coronavirus outbreak. First, let's have a look at the words in our tweet data that the `nrc` lexicon codes as fear-related words.
+Let's see how we might filter the texts by selecting a dictionary, or subset of a dictionary, and using `inner_join()` to then filter out tweet data. We might, for example, be interested in fear words. Maybe, we might hypothesize, there is a uptick of fear toward the beginning of the coronavirus outbreak. First, let's have a look at the words in our tweet data that the `nrc` lexicon codes as fear-related words.
 
 ```{r}
 
@@ -165,7 +179,7 @@ tidy_tweets %>%
 
 ```
 
-We have a total of 1,174 words with some fear valence in our pamphlet data according to the `nrc` classification. Several seem reasonable (e.g., "death," "pandemic"); others seems less so (e.g., "mum," "fight").
+We have a total of 1,174 words with some fear valence in our tweet data according to the `nrc` classification. Several seem reasonable (e.g., "death," "pandemic"); others seems less so (e.g., "mum," "fight").
 
 ## Sentiment trends over time
 
@@ -192,13 +206,13 @@ We then calculate the sentiment scores for each of our sentiment types (positive
 
 ```{r}
 #get tweet sentiment by date
-pamph_nrc_sentiment <- tidy_tweets %>%
+tweets_nrc_sentiment <- tidy_tweets %>%
   inner_join(get_sentiments("nrc")) %>%
   count(date, index = order %/% 1000, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
   mutate(sentiment = positive - negative)
 
-pamph_nrc_sentiment %>%
+tweets_nrc_sentiment %>%
   ggplot(aes(date, sentiment)) +
   geom_point(alpha=0.5) +
   geom_smooth(method= loess, alpha=0.25)

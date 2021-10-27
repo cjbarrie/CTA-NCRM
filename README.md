@@ -4,6 +4,8 @@
 
 Repository of materials for ESRC National Centre for Research Methods Computational Text Analysis workshop. October 28, 2021.
 
+Introduction slides can be found [here](https://docs.google.com/presentation/d/1vGeO-EJeUo6W3A-JwENb4Ba87I_kAoAP3i8NJrpOuqA/edit?usp=sharing).
+
 You can use this in several ways:
 
 1. You might want to "clone" the entire repository and save all of the files in here locally. That's fine if you have some experience using R and R Markdown and know how to navigate the different file types contained in here. 

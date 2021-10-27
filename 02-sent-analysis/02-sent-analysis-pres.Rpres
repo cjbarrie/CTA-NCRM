@@ -92,7 +92,7 @@ bingsent %>%
 </center>
 - Source: Martins, Mauricio de Jesus Dias and Nicolas Baumard. 2021. "The rise of prosociality in fiction preceded democratic revolutions in Early Modern Europe," *Proceedings of the National Academy of Sciences*, 117(46) 28684–28691.
 
-Running Your Own Analysis: Tahrir Documents
+Running Your Own Analysis: News tweets
 ========================================================
 
 ```{r, echo=F}
@@ -108,7 +108,7 @@ library(readr) # more informative and easy way to import data
 library(stringr) # to handle text elements
 library(tidytext) # includes set of functions useful for manipulating text
 
-pamphdata <- read_csv("https://raw.githubusercontent.com/cjbarrie/RDL-Ed/main/03-screenscrape-apis/data/pamphlets_formatted_gsheets.csv")
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-NCRM/blob/main/02-sent-analysis/data/newstweets.rds?raw=true")))
 
 ```
 
@@ -136,18 +136,32 @@ Getting sentiment dictionaries
 get_sentiments("bing")
 ```
 
+Curate tweets data
+========================================================
+
+```{r}
+
+tweets <- tweets %>%
+  select(user_username, text, created_at, user_name,
+         retweet_count, like_count, quote_count) %>%
+  rename(username = user_username,
+         newspaper = user_name,
+         tweet = text)
+
+
+```
 
 Preprocess Tahrir documents
 ========================================================
 
 ```{r}
 
-tidy_pamph <- pamphdata %>% 
-  mutate(desc = tolower(text)) %>%
+tidy_tweets <- tweets %>% 
+  mutate(desc = tolower(tweet)) %>%
   unnest_tokens(word, desc) %>%
   filter(str_detect(word, "[a-z]"))
 
-tidy_pamph <- tidy_pamph %>%
+tidy_tweets <- tidy_tweets %>%
     filter(!word %in% stop_words$word)
 ```
 
@@ -155,7 +169,7 @@ Inspect
 ========================================================
 
 ```{r, message=FALSE, warning=FALSE, eval=TRUE}
-tidy_pamph %>%
+tidy_tweets %>%
   count(word, sort = TRUE)
 ```
 
@@ -164,10 +178,12 @@ Order by date and index
 
 ```{r}
 #order and format date
-tidy_pamph<- tidy_pamph %>%
+tidy_tweets$date <- as.Date(tidy_tweets$created_at)
+
+tidy_tweets <- tidy_tweets %>%
   arrange(date)
 
-tidy_pamph$order <- 1:nrow(tidy_pamph)
+tidy_tweets$order <- 1:nrow(tidy_tweets)
 
 ```
 
@@ -176,7 +192,7 @@ Get sentiments in tidy format
 
 ```{r}
 #join pamphlets with nrc sentiment data
-pamph_nrc_sentiment <- tidy_pamph %>%
+tweets_nrc_sentiment <- tidy_tweets %>%
   inner_join(get_sentiments("nrc"))
 
 ```
@@ -186,10 +202,10 @@ Get sentiments in tidy format
 
 ```{r}
 #calculate sentiment over per 1000 words per date
-pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+tweets_nrc_sentiment <- tweets_nrc_sentiment %>%
   count(date, index = order %/% 1000, sentiment)
 
-head(pamph_nrc_sentiment)
+head(tweets_nrc_sentiment)
 
 ```
 
@@ -198,10 +214,10 @@ Get sentiments in tidy format
 
 ```{r}
 #separate into 
-pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+tweets_nrc_sentiment <- tweets_nrc_sentiment %>%
   spread(sentiment, n, fill = 0)
 
-head(pamph_nrc_sentiment)
+head(tweets_nrc_sentiment)
 
 ```
 
@@ -210,17 +226,17 @@ Get sentiments in tidy format
 
 ```{r}
 #separate into 
-pamph_nrc_sentiment <- pamph_nrc_sentiment %>%
+tweets_nrc_sentiment <- tweets_nrc_sentiment %>%
   mutate(sentiment = positive - negative)
 
-head(pamph_nrc_sentiment)
+head(tweets_nrc_sentiment)
 ```
 
 Plot
 ========================================================
 
 ```{r, eval = F}
-pamph_nrc_sentiment %>%
+tweets_nrc_sentiment %>%
   ggplot(aes(date, sentiment)) +
   geom_point(alpha=0.5) +
   geom_smooth(method= loess, alpha=0.25)
@@ -230,7 +246,7 @@ pamph_nrc_sentiment %>%
 ========================================================
 
 ```{r, echo=F, fig.align="center", out.width="40%",}
-pamph_nrc_sentiment %>%
+tweets_nrc_sentiment %>%
   ggplot(aes(date, sentiment)) +
   geom_point(alpha=0.5) +
   geom_smooth(method= loess, alpha=0.25)
@@ -240,4 +256,4 @@ pamph_nrc_sentiment %>%
 Worksheets
 ========================================================
 
-- [https://github.com/cjbarrie/sicss_21](https://github.com/cjbarrie/sicss_21)
+- [https://github.com/cjbarrie/CTA-NCRM](https://github.com/cjbarrie/CTA-NCRM)
