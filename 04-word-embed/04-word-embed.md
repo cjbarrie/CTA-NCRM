@@ -56,6 +56,12 @@ twts_sample <- readRDS("data/twts_corpus_sample.rds")
 twts_sample$postID <- row.names(twts_sample)
 ```
 
+Or you can download direct from Github with:
+
+
+```r
+tweets  <- readRDS(gzcon(url("https://github.com/cjbarrie/CTA-NCRM/blob/main/04-word-embed/data/twts_corpus_sample.rds?raw=true")))
+```
 ## Word vectors via SVD
 
 We're going to set about generating a set of word vectors with from our text data. Note that many word embedding applications will use pre-trained embeddings from a much larger corpus, or will generate local embeddings using neural net-based approaches. 
@@ -70,7 +76,7 @@ The first thing we need to do is to get our data in the right format to calculat
 
 What's going on?
 
-Well, we're first unnesting our tweet data as in previous exercises. But importantly, here, we're not unnesting to individual tokens but to ngrams of length 6 or, in other words, for postID n with words k indexed by i, we take words i, 1+1...1+6, then we take words 1+1...1+7. Try just running the first two lines of the code below to see what this means in practice. 
+Well, we're first unnesting our tweet data as in previous exercises. But importantly, here, we're not unnesting to individual tokens but to ngrams of length 6 or, in other words, for postID *n* with words *k* indexed by *i*, we take words *i*, k1... k6, then we take words k2... k7. Try just running the first two lines of the code below to see what this means in practice. 
 
 After this, we make a unique ID for the particular ngram we create for each postID, and then we make a unique skipgramID for each postID and ngram. And then we unnest the words of each ngram associated with each skipgramID.
 
@@ -371,7 +377,7 @@ brexit_synonyms %>%
   theme_tufte(base_family = "Helvetica")
 ```
 
-![](04-word-embed_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](04-word-embed_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 
 ## GloVe Embeddings
@@ -537,7 +543,7 @@ ggplot(df_glove_umap) +
   labs(title = "GloVe word embedding in 2D using UMAP")
 ```
 
-![](04-word-embed_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](04-word-embed_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
 ```r
 # Plot the shaded part of the GloVe word embedding with labels
@@ -548,7 +554,7 @@ ggplot(df_glove_umap[df_glove_umap$UMAP1 < -2.5 & df_glove_umap$UMAP1 > -3 & df_
       theme(plot.title = element_text(hjust = .5, size = 14))
 ```
 
-![](04-word-embed_files/figure-html/unnamed-chunk-24-2.png)<!-- -->
+![](04-word-embed_files/figure-html/unnamed-chunk-25-2.png)<!-- -->
 
 ```r
 # Plot the word embedding of words that are related for the GloVe model
@@ -566,7 +572,7 @@ ggplot(selected_words, aes(x = UMAP1, y = UMAP2)) +
       theme(plot.title = element_text(hjust = .5, size = 14))
 ```
 
-![](04-word-embed_files/figure-html/unnamed-chunk-24-3.png)<!-- -->
+![](04-word-embed_files/figure-html/unnamed-chunk-25-3.png)<!-- -->
 
 
 We can see, here, then that our embeddings seem to make sense. We zoomed in first on that little outgrowth of our 2D mapping, which seemed to correspond to numbers and number words. Then we looked at words around "economy" and we see other related terms like "growth" and "jobs."
