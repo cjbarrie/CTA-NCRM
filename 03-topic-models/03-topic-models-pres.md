@@ -209,9 +209,9 @@ Extensions
 ========================================================
 
 - "Structural topic models": from [Roberts et al.](https://scholar.princeton.edu/files/bstewart/files/stmnips2013.pdf) and dedicated webpage [here](https://www.structuraltopicmodel.com/) and JOSS article [here](https://raw.githubusercontent.com/bstewart/stm/master/vignettes/stmVignette.pdf)
-- Stochastic block model approches: see [Gerlach et al.](https://advances.sciencemag.org/content/4/7/eaaq1360/) and Github repo [here](https://github.com/martingerlach/hSBM_Topicmodel)
+- Contextualized topic models: see [Bianchi et al.](https://aclanthology.org/2021.acl-short.96/) and Github repo [here](https://github.com/MilaNLProc/contextualized-topic-models)
 
 Worksheets
 ========================================================
 
-- [https://github.com/cjbarrie/sicss_21](https://github.com/cjbarrie/sicss_21)
+- [https://github.com/cjbarrie/CTA-NCRM](https://github.com/cjbarrie/CTA-NCRM)
